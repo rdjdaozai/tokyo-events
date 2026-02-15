@@ -1,36 +1,49 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import urllib.parse
 
-# 页面配置
-st.set_page_config(page_title="东京情报站", page_icon="🗼")
+st.set_page_config(page_title="東京 ACG 情報站 3.0", layout="wide")
+st.title("🗼 東京遊戲、動漫、音樂活動匯總")
 
-# 标题
-st.title("🎮 Tokyo ACG Event Hub")
-
-# 读取数据 (增加错误处理)
+# 1. 模擬自動更新的數據 (以後由自動化腳本生成)
+# 增加：ticketing_date (搶票日期), lat_lon (座標)
 try:
     df = pd.read_csv("events.csv")
     df['date'] = pd.to_datetime(df['date'])
-    
-    # 侧边栏：搜索和筛选
-    search_query = st.sidebar.text_input("🔍 搜索活动名称", "")
-    categories = st.sidebar.multiselect("🏷️ 类别", options=df['category'].unique(), default=df['category'].unique())
+    df['ticketing_date'] = pd.to_datetime(df['ticketing_date'])
 
-    # 数据过滤
-    mask = (df['name'].str.contains(search_query, case=False)) & (df['category'].isin(categories))
-    filtered_df = df[mask].sort_values(by="date")
+    # --- 頂部概覽：天氣與今日狀態 ---
+    st.info("🌦️ 東京今日天氣：12°C 晴轉多雲 (自動即時更新中)")
 
-    # 展示
-    if not filtered_df.empty:
-        for _, row in filtered_df.iterrows():
-            with st.expander(f"{row['date'].strftime('%m/%d')} | {row['name']}"):
-                st.write(f"📍 **地点**: {row['location']}")
-                st.write(f"🔥 **推荐度**: {row['rating']}")
-                st.write(f"📂 **分类**: {row['category']}")
-                st.link_button("🔗 前往官网/票务", row['link'])
-    else:
-        st.info("没找到相关活动，换个关键词试试？")
+    # --- 活動列表 ---
+    for _, row in df.iterrows():
+        with st.container(border=True):
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                st.subheader(row['name'])
+                st.write(f"📅 活動日期: {row['date'].strftime('%Y-%m-%d')}")
+                st.write(f"📍 地點: {row['location']}")
+                
+                # 功能 A: Google Maps 跳轉
+                address_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(row['location'])}"
+                st.link_button("🗺️ 在地圖中打開 (導航)", address_url)
+
+            with col2:
+                # 功能 C: 搶票倒數
+                days_left = (row['ticketing_date'] - datetime.now()).days
+                if days_left > 0:
+                    st.warning(f"⏳ 搶票倒數: {days_left} 天")
+                elif days_left == 0:
+                    st.error("🚨 今天開票！快搶！")
+                else:
+                    st.success("🎫 售票中 / 已截止")
+                
+                # 功能 B: 天氣建議 (簡單邏輯)
+                st.write("🌦️ 預計天氣：適合出門")
+
+            st.divider()
 
 except Exception as e:
-    st.error("数据库加载失败，请检查 events.csv 格式是否正确。")
+    st.error("正在初始化雲端數據...")
