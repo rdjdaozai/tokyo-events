@@ -2,16 +2,20 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
+# 基础配置
 st.set_page_config(page_title="东京活动站", layout="wide")
 
+# 你的 Google 表格发布的 CSV 链接
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQxcPB4dwr4Z6KG-CLyMSn2u-tjUzBIHKAHIiq2E9nPn0ahWjGDugBvoXsSwZYWIvqyomSVJDZvwI9u/pub?output=csv"
 
 @st.cache_data(ttl=300) 
 def get_data():
     try:
         df = pd.read_csv(CSV_URL)
+        # 基础清洗
         df = df[df['name'] != 'name']
         df = df.dropna(subset=['name'])
+        # 日期转换
         df['start_date'] = pd.to_datetime(df['start_date'], errors='coerce')
         df['end_date'] = pd.to_datetime(df['end_date'], errors='coerce')
         return df.dropna(subset=['start_date']).sort_values('start_date')
@@ -28,11 +32,12 @@ if not df.empty:
         s_date = row['start_date'].date()
         e_date = row['end_date'].date() if pd.notnull(row['end_date']) else s_date
         
+        # 使用简单的 card 布局，减少缩进嵌套层次
         with st.container(border=True):
             st.subheader(row['name'])
             st.write(f"📅 {s_date} — {e_date} | 📍 {row.get('location', '东京')}")
             
-            # 状态显示
+            # 状态逻辑：确保 elif 后面有冒号
             if today < s_date:
                 st.info("⌛ 尚未开始")
             elif s_date <= today <= e_date:
@@ -40,18 +45,13 @@ if not df.empty:
             else:
                 st.text("🔒 活动已结束")
             
-            # --- 核心修复：链接清洗逻辑 ---
-            raw_link = str(row.get('link', '')).strip() # 去掉前后空格
-            
-            if raw_link and raw_link != 'nan':
-                # 如果链接不包含 http，自动补全（防止变成相对路径）
-                clean_link = raw_link if raw_link.startswith('http') else f"https://{raw_link}"
-                st.link_button("🔗 查看详情", clean_link)
-            else:
-                st.button("🚫 暂无官方链接", disabled=True)
+            # 链接按钮
+            if pd.notnull(row.get('link')):
+                st.link_button("查看详情", str(row['link']))
 else:
     st.warning("📭 暂无数据，请检查 Google 表格。")
 
+# 侧边栏
 with st.sidebar:
     if st.button("🔄 刷新数据"):
         st.cache_data.clear()
