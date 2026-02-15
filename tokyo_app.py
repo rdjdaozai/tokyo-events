@@ -1,32 +1,36 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-import streamlit.components.v1 as components
 
-st.set_page_config(page_title="东京情报指挥中心", layout="wide")
+# 1. 填入你刚才从“发布到网络”获取的那个长链接
+CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQxcPB4dwr4Z6KG-CLyMSn2u-tjUzBIHKAHIiq2E9nPn0ahWjGDugBvoXsSwZYWIvqyomSVJDZvwI9u/pub?output=csv"
 
-# --- 侧边栏：社交媒体墙 (这是你现在获取动态最稳的方式) ---
-with st.sidebar:
-    st.header("📱 SNS 实时情报")
-    st.write("以下是 X (Twitter) 上关于 #东京活动 的实时推文：")
-    # 使用 Twitter 官方 Widget
-    components.html(
-        """
-        <a class="twitter-timeline" data-height="800" href="https://twitter.com/hashtag/%E6%9D%B1%E4%BA%AC%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88?src=hash&ref_src=twsrc%5Etfw">#東京イベント</a> 
-        <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-        """,
-        height=800,
-    )
+@st.cache_data(ttl=600) # 每 10 分钟刷新一次，保证性能的同时兼顾实时性
+def get_data_from_google():
+    try:
+        # 直接读取 Google 发布的 CSV 链接
+        data = pd.read_csv(CSV_URL)
+        
+        # 预处理：删除空行（防止你在表格下面留了太多空格）
+        data = data.dropna(subset=['name'])
+        
+        # 转换日期格式，防止报错
+        data['start_date'] = pd.to_datetime(data['start_date']).dt.date
+        data['end_date'] = pd.to_datetime(data['end_date']).dt.date
+        
+        return data
+    except Exception as e:
+        st.error(f"数据读取失败：{e}")
+        return pd.DataFrame()
 
-# --- 主界面 ---
-st.title("🗼 东京 ACG 情报站")
+# 2. 在主界面显示数据
+df = get_data_from_google()
 
-try:
-    df = pd.read_csv("events.csv")
-    st.subheader("🗓️ 精选活动列表")
+if not df.empty:
+    st.success(f"📡 已同步最新情报（共 {len(df)} 条）")
+    # 下面接你之前的展示逻辑（st.container 等）
     for _, row in df.iterrows():
-        with st.expander(f"📍 {row['name']}"):
-            st.write(f"展期: {row['start_date']} 至 {row['end_date']}")
+        with st.expander(f"📌 {row['name']}"):
+            st.write(f"展期：{row['start_date']} 至 {row['end_date']}")
             st.link_button("访问官网", row['link'])
-except:
-    st.info("活动列表正在维护中，请先参考左侧实时 SNS 情报。")
+else:
+    st.warning("目前表格内没有活动信息，请在 Google 表格中添加。")
