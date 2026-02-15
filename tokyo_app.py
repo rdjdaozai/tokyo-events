@@ -2,56 +2,57 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# 设置网页基础配置
-st.set_page_config(page_title="东京 ACG 活动情报站", layout="wide", page_icon="🗼")
+# 基础配置
+st.set_page_config(page_title="东京活动站", layout="wide")
 
 # 你的 Google 表格发布的 CSV 链接
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQxcPB4dwr4Z6KG-CLyMSn2u-tjUzBIHKAHIiq2E9nPn0ahWjGDugBvoXsSwZYWIvqyomSVJDZvwI9u/pub?output=csv"
 
 @st.cache_data(ttl=300) 
-def get_data_from_google():
+def get_data():
     try:
         df = pd.read_csv(CSV_URL)
-        if 'name' in df.columns:
-            # 过滤掉重复表头和空名
-            df = df[df['name'] != 'name']
-            df = df.dropna(subset=['name'])
-        
-        # 强制日期转换
+        # 基础清洗
+        df = df[df['name'] != 'name']
+        df = df.dropna(subset=['name'])
+        # 日期转换
         df['start_date'] = pd.to_datetime(df['start_date'], errors='coerce')
         df['end_date'] = pd.to_datetime(df['end_date'], errors='coerce')
-        df = df.dropna(subset=['start_date'])
-        df = df.sort_values(by='start_date')
-        return df
+        return df.dropna(subset=['start_date']).sort_values('start_date')
     except Exception as e:
-        st.error(f"⚠️ 数据同步失败：{e}")
+        st.error(f"同步失败: {e}")
         return pd.DataFrame()
 
-# --- 网页界面渲染 ---
 st.title("🗼 东京 ACG 活动情报站")
-st.markdown("---")
-
-df = get_data_from_google()
+df = get_data()
 today = datetime.now().date()
 
 if not df.empty:
-    st.info(f"📊 当前已收录 {len(df)} 条活跃活动情报")
-    
     for _, row in df.iterrows():
-        start_val = row['start_date'].date()
-        end_val = row['end_date'].date() if pd.notnull(row['end_date']) else start_val
+        s_date = row['start_date'].date()
+        e_date = row['end_date'].date() if pd.notnull(row['end_date']) else s_date
         
+        # 使用简单的 card 布局，减少缩进嵌套层次
         with st.container(border=True):
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.subheader(row['name'])
-                st.write(f"📅 **时间**：{start_val} — {end_val}")
-                # 检查 location 字段
-                loc = row.get('location', '东京')
-                if pd.notnull(loc):
-                    st.write(f"📍 **地点**：{loc}")
-            with col2:
-                # 状态逻辑
-                if today < start_val:
-                    st.warning("⌛ 尚未开始")
-                elif start
+            st.subheader(row['name'])
+            st.write(f"📅 {s_date} — {e_date} | 📍 {row.get('location', '东京')}")
+            
+            # 状态逻辑：确保 elif 后面有冒号
+            if today < s_date:
+                st.info("⌛ 尚未开始")
+            elif s_date <= today <= e_date:
+                st.success("🔥 正在进行中")
+            else:
+                st.text("🔒 活动已结束")
+            
+            # 链接按钮
+            if pd.notnull(row.get('link')):
+                st.link_button("查看详情", str(row['link']))
+else:
+    st.warning("📭 暂无数据，请检查 Google 表格。")
+
+# 侧边栏
+with st.sidebar:
+    if st.button("🔄 刷新数据"):
+        st.cache_data.clear()
+        st.rerun()
