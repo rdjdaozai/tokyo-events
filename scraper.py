@@ -1,79 +1,41 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import os
 
-def get_tokyo_events():
-    # 使用日本东京地区的动漫活动列表
-    url = "https://natalie.mu/anime/event/list/area/13" 
-    
-    # 模拟真实浏览器的身份证明 (User-Agent)
-    headers = {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-        "Accept-Language": "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Referer": "https://natalie.mu/"
-    }
-    
+def scrape_source(url, headers):
     try:
-        session = requests.Session()
-        response = session.get(url, headers=headers, timeout=15)
-        response.encoding = 'utf-8'
-        
-        print(f"DEBUG: 网页响应状态码: {response.status_code}")
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        events = []
+        print(f"DEBUG: 嘗試抓取 {url}")
+        res = requests.get(url, headers=headers, timeout=15)
+        if res.status_code == 200:
+            return BeautifulSoup(res.text, 'html.parser')
+    except:
+        return None
+    return None
 
-        # 尝试更宽泛的选择器，防止类名变动
-        items = soup.select('li.m-eventList_item')
-        if not items:
-            # 备选方案：找所有包含 title 的 p 标签
-            items = soup.find_all('p', class_='m-eventList_title')
-            print(f"DEBUG: 使用备选方案找到 {len(items)} 个标题")
+def get_combined_events():
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    all_events = []
 
-        for item in soup.select('li.m-eventList_item'):
-            try:
-                # 抓取标题和链接
-                title_node = item.select_one('.m-eventList_title')
-                link_node = item.select_one('a')
-                date_node = item.select_one('.m-eventList_date')
-                
-                if title_node and date_node:
-                    name = title_node.get_text(strip=True)
-                    date_raw = date_node.get_text(strip=True)
-                    link = "https://natalie.mu" + link_node['href'] if link_node else ""
-                    
-                    # 格式化日期：2026/02/15 〜 2026/03/01
-                    if "〜" in date_raw:
-                        parts = date_raw.split("〜")
-                        start = parts[0].split("(")[0].strip().replace("/", "-")
-                        end = parts[1].split("(")[0].strip().replace("/", "-")
-                    else:
-                        start = date_raw.split("(")[0].strip().replace("/", "-")
-                        end = start
+    # 來源 1: Natalie Anime (修正後的 URL)
+    soup1 = scrape_source("https://natalie.mu/anime/event/list?area=13", headers)
+    if soup1:
+        for item in soup1.select('.m-eventList_item'):
+            title = item.select_one('.m-eventList_title').text.strip()
+            date_raw = item.select_one('.m-eventList_date').text.strip()
+            link = "https://natalie.mu" + item.select_one('a')['href']
+            dates = date_raw.split("〜")
+            start = dates[0].split("(")[0].strip().replace("/", "-")
+            end = dates[1].split("(")[0].strip().replace("/", "-") if len(dates) > 1 else start
+            all_events.append({"name": title, "start_date": start, "end_date": end, "link": link})
 
-                    events.append({
-                        "name": name,
-                        "start_date": start,
-                        "end_date": end,
-                        "location": "东京地区",
-                        "link": link
-                    })
-            except Exception as e:
-                continue
+    # 來源 2: Tokyo Big Sight (預算備用，可根據需要增加更多源)
+    # 這裡可以持續擴展其他網站的邏輯...
 
-        return pd.DataFrame(events)
-    except Exception as e:
-        print(f"ERROR: 网络请求异常: {e}")
-        return pd.DataFrame()
+    return pd.DataFrame(all_events)
 
-# 强制执行并输出
-df_new = get_tokyo_events()
-print(f"DEBUG: 最终抓取到的活动总数: {len(df_new)}")
-
-if not df_new.empty:
-    df_new.to_csv("events.csv", index=False)
-    print("SUCCESS: 数据已写入 events.csv")
+df = get_combined_events()
+if not df.empty:
+    df.to_csv("events.csv", index=False)
+    print(f"SUCCESS: 總共更新了 {len(df)} 條活動數據")
 else:
-    # 如果抓取不到，为了让 GitHub 有东西可提交，我们写一个“占位符”错误
-    print("FAILURE: 本次抓取为空")
+    print("FAILURE: 所有來源均未獲取到數據")
