@@ -1,61 +1,40 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import urllib.parse
 
-st.set_page_config(page_title="东京情报站 3.0", layout="wide", page_icon="🗼")
+st.set_page_config(page_title="东京活动实时看板", layout="wide")
 
-# 1. 样式美化
-st.markdown("""
-    <style>
-    .event-card { border: 1px solid #e6e9ef; border-radius: 10px; padding: 15px; margin-bottom: 10px; background: #ffffff; }
-    .countdown { color: #ff4b4b; font-weight: bold; }
-    </style>
-    """, unsafe_allow_html=True)
+st.title("🗼 东京最新活动 (自动更新版)")
 
-st.title("🎮 Tokyo ACG Hub - 自动更新版")
-
-# 2. 读取数据
 try:
+    # 加载爬虫生成的数据
     df = pd.read_csv("events.csv")
-    df['date'] = pd.to_datetime(df['date'])
-    df['ticketing_date'] = pd.to_datetime(df['ticketing_date'])
+    df['start_date'] = pd.to_datetime(df['start_date'])
+    df['end_date'] = pd.to_datetime(df['end_date'])
+    
+    today = datetime.now()
 
-    # --- 顶栏：实时信息 ---
-    col_t1, col_t2 = st.columns(2)
-    with col_t1:
-        st.metric("今日日期", datetime.now().strftime('%Y-%m-%d'))
-    with col_t2:
-        # 这里未来接入 OpenWeather API
-        st.metric("东京天气 (预测)", "12°C ☀️")
+    # 简单的统计
+    st.caption(f"最后更新时间：{today.strftime('%Y-%m-%d %H:%M')}")
 
-    st.divider()
-
-    # 3. 核心功能展示
-    for _, row in df.sort_values('date').iterrows():
-        with st.container():
-            # 计算倒计时 (功能 C)
-            days_to_ticket = (row['ticketing_date'] - datetime.now()).days
+    for _, row in df.iterrows():
+        with st.container(border=True):
+            col1, col2 = st.columns([3, 1])
             
-            c1, c2 = st.columns([3, 1])
-            with c1:
+            with col1:
                 st.subheader(row['name'])
-                st.caption(f"📍 {row['location']} | 🏷️ {row['category']}")
-                
-                # 功能 A: Google Maps 导航
-                map_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(row['location'])}"
-                st.link_button(f"🗺️ 导航到 {row['location']}", map_url)
-                
-            with c2:
-                if days_to_ticket > 0:
-                    st.error(f"⌛ 抢票倒计时: {days_to_ticket} 天")
-                elif days_to_ticket == 0:
-                    st.warning("🚨 今天开票！")
+                st.write(f"📅 展期：{row['start_date'].strftime('%Y/%m/%d')} 〜 {row['end_date'].strftime('%Y/%m/%d')}")
+                st.write(f"📍 {row['location']}")
+                st.link_button("查看官网详情", row['link'])
+            
+            with col2:
+                # 状态逻辑：计算当前处于展期的哪个阶段
+                if today < row['start_date']:
+                    st.warning("📅 尚未开始")
+                elif row['start_date'] <= today <= row['end_date']:
+                    st.success("🔥 正在进行中")
                 else:
-                    st.success("🎫 售票中/已结束")
-                
-                st.link_button("🔗 官网详情", row['link'])
-            st.divider()
+                    st.error("⌛ 已结束")
 
 except Exception as e:
-    st.error("数据加载中，请稍后刷新...")
+    st.info("数据正在努力抓取中，请稍后再试...")
