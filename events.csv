@@ -1,5 +1,4 @@
-name,date,location,category,rating,link
-名侦探柯南 30周年展,2026-02-20,东京巨蛋,动漫,⭐⭐⭐⭐⭐,https://www.conan-30th.jp
-hololive SUPER EXPO 2026,2026-03-06,幕张展览馆,VTuber,⭐⭐⭐⭐⭐,https://hololivesuperexpo2026.hololivepro.com
-死亡搁浅交响音乐会,2026-02-23,涩谷公会堂,游戏音乐,⭐⭐⭐⭐,https://example.com
-AnimeJapan 2026,2026-03-28,东京 Big Sight,综合动漫,⭐⭐⭐⭐⭐,https://www.anime-japan.jp
+name,date,location,category,rating,link,ticketing_date
+名侦探柯南 30周年展,2026-03-20,东京巨蛋,动漫,⭐⭐⭐⭐⭐,https://www.conan-30th.jp,2026-02-15
+hololive SUPER EXPO 2026,2026-03-06,幕张展览馆,VTuber,⭐⭐⭐⭐⭐,https://hololive.pro,2026-02-10
+AnimeJapan 2026,2026-03-28,东京 Big Sight,综合动漫,⭐⭐⭐⭐⭐,https://www.anime-japan.jp,2026-03-01
