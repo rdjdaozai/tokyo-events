@@ -1,18 +1,32 @@
-name: Daily Event Update
+name: Auto_Scraper_Tokyo
 
 on:
   schedule:
-    - cron: '0 15 * * *' # 每天东京时间 0 点自动运行
-  workflow_dispatch:      # 允许你手动点击按钮立刻更新
+    - cron: '0 21 * * *' # 每天东京时间早上 6 点自动抓取 (UTC 21:00)
+  workflow_dispatch:      # 允许你在 GitHub 页面手动点击按钮测试更新
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: 检出代码
+        uses: actions/checkout@v3
 
-      - name: Run Update Script
+      - name: 安装 Python 环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: 安装依赖包
+        run: pip install requests beautifulsoup4 pandas
+
+      - name: 运行爬虫脚本
+        run: python scraper.py
+
+      - name: 将新数据提交到仓库
         run: |
-          # 这里以后会放爬虫脚本的运行指令
-          echo "Checking for new events in Tokyo..."
+          git config --global user.name "Tokyo-Scraper-Bot"
+          git config --global user.email "bot@github.com"
+          git add events.csv
+          git commit -m "Auto-update events: $(date)" || exit 0
+          git push
